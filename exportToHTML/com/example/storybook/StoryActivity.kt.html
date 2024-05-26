@@ -1,0 +1,218 @@
+<html>
+<head>
+<title>StoryActivity.kt</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #6897bb;}
+.s3 { color: #6a8759;}
+.s4 { color: #808080;}
+</style>
+</head>
+<body bgcolor="#1e1f22">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+StoryActivity.kt</font>
+</center></td></tr></table>
+<pre><span class="s0">package </span><span class="s1">com.example.storybook</span>
+
+<span class="s1">import android.content.Intent</span>
+<span class="s1">import androidx.appcompat.app.AppCompatActivity</span>
+<span class="s1">import android.os.Bundle</span>
+<span class="s1">import android.speech.tts.TextToSpeech</span>
+<span class="s1">import android.speech.tts.TextToSpeech.OnInitListener</span>
+<span class="s1">import android.speech.tts.UtteranceProgressListener</span>
+<span class="s1">import android.util.Log</span>
+<span class="s1">import android.widget.Toast</span>
+<span class="s1">import com.example.storybook.databinding.ActivityStoryBinding</span>
+<span class="s1">import java.util.Locale</span>
+
+<span class="s0">class </span><span class="s1">StoryActivity : AppCompatActivity()</span><span class="s0">, </span><span class="s1">OnInitListener {</span>
+
+    <span class="s1">private lateinit </span><span class="s0">var </span><span class="s1">binding: ActivityStoryBinding</span>
+    <span class="s1">private lateinit </span><span class="s0">var </span><span class="s1">storyList: ArrayList&lt;Story&gt;</span>
+    <span class="s1">private </span><span class="s0">var </span><span class="s1">position: Int = </span><span class="s2">0</span>
+
+    <span class="s1">private </span><span class="s0">var </span><span class="s1">tts: TextToSpeech ?= </span><span class="s0">null</span>
+    <span class="s1">private </span><span class="s0">val </span><span class="s1">CHECK_TTS_DATA = </span><span class="s2">1</span>
+    <span class="s1">private lateinit </span><span class="s0">var </span><span class="s1">speakableText: String</span>
+
+    <span class="s1">private </span><span class="s0">var </span><span class="s1">isPlaying: Boolean = </span><span class="s0">false</span>
+
+    <span class="s1">override </span><span class="s0">fun </span><span class="s1">onCreate(savedInstanceState: Bundle?) {</span>
+        <span class="s0">super</span><span class="s1">.onCreate(savedInstanceState)</span>
+
+        <span class="s1">binding = ActivityStoryBinding.inflate(layoutInflater)</span>
+        <span class="s1">setContentView(binding.root)</span>
+
+        <span class="s1">position = intent.getIntExtra(</span><span class="s3">&quot;position&quot;</span><span class="s0">, </span><span class="s2">0</span><span class="s1">)</span>
+        <span class="s1">storyList = Constants.getStoryList()</span>
+        <span class="s1">tts = TextToSpeech(</span><span class="s0">this,this</span><span class="s1">)</span>
+
+        <span class="s4">// Check for TextToSpeech data using the intent</span>
+        <span class="s0">val </span><span class="s1">checkIntent = Intent()</span>
+        <span class="s1">checkIntent.action = TextToSpeech.Engine.ACTION_CHECK_TTS_DATA</span>
+        <span class="s1">startActivityForResult(checkIntent</span><span class="s0">, </span><span class="s1">CHECK_TTS_DATA)</span>
+
+
+
+        <span class="s1">setStoryView()</span>
+        <span class="s1">setSpeakableText()</span>
+
+        <span class="s1">binding.nextButton.setOnClickListener {</span>
+            <span class="s0">if </span><span class="s1">(position &lt; storyList.size-</span><span class="s2">1</span><span class="s1">){</span>
+                <span class="s1">onChangeStory(</span><span class="s2">1</span><span class="s1">)</span>
+            <span class="s1">}</span>
+            <span class="s0">else</span><span class="s1">{</span>
+                <span class="s4">// position = 0 //Moves to first story</span>
+                <span class="s4">// setStoryView()</span>
+                <span class="s1">Toast.makeText(</span><span class="s0">this, </span><span class="s3">&quot;Last Story&quot;</span><span class="s0">, </span><span class="s1">Toast.LENGTH_SHORT).show()</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s1">binding.previousButton.setOnClickListener {</span>
+            <span class="s0">if </span><span class="s1">(position &gt; </span><span class="s2">0</span><span class="s1">){</span>
+                <span class="s1">onChangeStory(-</span><span class="s2">1</span><span class="s1">)</span>
+            <span class="s1">}</span>
+            <span class="s0">else</span><span class="s1">{</span>
+                <span class="s4">// position = 9 //Moves to last story</span>
+                <span class="s4">// setStoryView()</span>
+                <span class="s1">Toast.makeText(</span><span class="s0">this, </span><span class="s3">&quot;First Story&quot;</span><span class="s0">, </span><span class="s1">Toast.LENGTH_SHORT).show()</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+        <span class="s1">binding.playButton.setOnClickListener {</span>
+            <span class="s1">playStory()</span>
+        <span class="s1">}</span>
+
+    <span class="s1">}</span>
+
+    <span class="s1">override </span><span class="s0">fun </span><span class="s1">onActivityResult(requestCode: Int</span><span class="s0">, </span><span class="s1">resultCode: Int</span><span class="s0">, </span><span class="s1">data: Intent?) {</span>
+        <span class="s0">super</span><span class="s1">.onActivityResult(requestCode</span><span class="s0">, </span><span class="s1">resultCode</span><span class="s0">, </span><span class="s1">data)</span>
+
+        <span class="s0">if </span><span class="s1">(requestCode == CHECK_TTS_DATA)</span>
+        <span class="s1">{</span>
+            <span class="s0">if </span><span class="s1">(resultCode == TextToSpeech.Engine.CHECK_VOICE_DATA_PASS)</span>
+            <span class="s1">{</span>
+                <span class="s1">Log.i(</span><span class="s3">&quot;TTS&quot;</span><span class="s0">, </span><span class="s3">&quot;TextToSpeech data is ready&quot;</span><span class="s1">)</span>
+            <span class="s1">}</span>
+            <span class="s0">else</span>
+            <span class="s1">{</span>
+                <span class="s0">val </span><span class="s1">installIntent = Intent()</span>
+                <span class="s1">installIntent.action = TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA</span>
+                <span class="s1">startActivity(installIntent)</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+
+    <span class="s1">}</span>
+
+    <span class="s1">private </span><span class="s0">fun </span><span class="s1">setStoryView(){</span>
+
+        <span class="s0">val </span><span class="s1">story = storyList[position]</span>
+        <span class="s1">binding.storyImage.setImageResource(story.image2)</span>
+        <span class="s1">binding.tvStoryTitle.setText(story.title)</span>
+        <span class="s1">binding.tvStory.setText(story.story)</span>
+        <span class="s1">binding.tvMoral.setText(story.moral)</span>
+
+    <span class="s1">}</span>
+
+    <span class="s4">// TextToSpeech</span>
+
+    <span class="s1">override </span><span class="s0">fun </span><span class="s1">onInit(status: Int) {</span>
+        <span class="s0">if </span><span class="s1">(status == TextToSpeech.SUCCESS)</span>
+        <span class="s1">{</span>
+            <span class="s0">val </span><span class="s1">result = tts!!.setLanguage(Locale.ENGLISH)</span>
+            <span class="s0">if </span><span class="s1">(result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED)</span>
+            <span class="s1">{</span>
+                <span class="s1">Log.e(</span><span class="s3">&quot;TTS&quot;</span><span class="s0">, </span><span class="s3">&quot;The specified language is not supported&quot;</span><span class="s1">)</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+        <span class="s0">else</span>
+        <span class="s1">{</span>
+            <span class="s1">Log.e(</span><span class="s3">&quot;TTS&quot;</span><span class="s0">, </span><span class="s3">&quot;Initialization failed!&quot;</span><span class="s1">)</span>
+        <span class="s1">}</span>
+
+        <span class="s1">tts?.setOnUtteranceProgressListener(</span><span class="s0">object</span><span class="s1">: UtteranceProgressListener(){</span>
+
+            <span class="s1">override </span><span class="s0">fun </span><span class="s1">onStart(utteranceId: String?) {</span>
+                <span class="s1">runOnUiThread {</span>
+                    <span class="s1">binding.playButton.setImageResource(R.drawable.pause)</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s1">override </span><span class="s0">fun </span><span class="s1">onDone(utteranceId: String?) {</span>
+                <span class="s1">runOnUiThread {</span>
+                    <span class="s1">binding.playButton.setImageResource(R.drawable.play)</span>
+                <span class="s1">}</span>
+            <span class="s1">}</span>
+
+            <span class="s1">override </span><span class="s0">fun </span><span class="s1">onError(p0: String?) {</span>
+                <span class="s1">Log.e(</span><span class="s3">&quot;TTS&quot;</span><span class="s0">, </span><span class="s3">&quot;Error in speech synthesis&quot;</span><span class="s1">)</span>
+            <span class="s1">}</span>
+
+        <span class="s1">})</span>
+
+    <span class="s1">}</span>
+
+    <span class="s1">private </span><span class="s0">fun </span><span class="s1">setSpeakableText()</span>
+    <span class="s1">{</span>
+        <span class="s1">speakableText = getString(storyList[position].story) + </span><span class="s3">&quot;So the Moral of the Story is &quot; </span><span class="s1">+</span>
+                    <span class="s1">getString(storyList[position].moral)</span>
+    <span class="s1">}</span>
+
+    <span class="s1">private </span><span class="s0">fun </span><span class="s1">speakOut(text: String)</span>
+    <span class="s1">{</span>
+        <span class="s0">if </span><span class="s1">(text.isNotEmpty())</span>
+        <span class="s1">{</span>
+            <span class="s0">if </span><span class="s1">(tts?.isSpeaking == </span><span class="s0">false</span><span class="s1">) {</span>
+                <span class="s1">tts?.speak(text</span><span class="s0">, </span><span class="s1">TextToSpeech.QUEUE_FLUSH</span><span class="s0">, null, </span><span class="s3">&quot;&quot;</span><span class="s1">)</span>
+            <span class="s1">}</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s1">private </span><span class="s0">fun </span><span class="s1">playStory(){</span>
+        <span class="s0">if </span><span class="s1">(!isPlaying)</span>
+        <span class="s1">{</span>
+            <span class="s1">isPlaying = </span><span class="s0">true</span>
+            <span class="s1">speakOut(speakableText)</span>
+            <span class="s1">binding.playButton.setImageResource(R.drawable.pause)</span>
+        <span class="s1">}</span>
+        <span class="s0">else</span>
+        <span class="s1">{</span>
+            <span class="s1">tts?.stop()</span>
+            <span class="s1">isPlaying = </span><span class="s0">false</span>
+            <span class="s1">binding.playButton.setImageResource(R.drawable.play)</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+
+    <span class="s1">private </span><span class="s0">fun </span><span class="s1">onChangeStory(offset:Int)</span>
+    <span class="s1">{</span>
+        <span class="s1">isPlaying = </span><span class="s0">false</span>
+        <span class="s1">tts?.stop()</span>
+        <span class="s1">position += offset</span>
+        <span class="s1">setStoryView()</span>
+        <span class="s1">binding.playButton.setImageResource(R.drawable.play)</span>
+        <span class="s1">setSpeakableText()</span>
+    <span class="s1">}</span>
+
+    <span class="s1">override </span><span class="s0">fun </span><span class="s1">onBackPressed() {</span>
+        <span class="s0">super</span><span class="s1">.onBackPressed()</span>
+        <span class="s0">if </span><span class="s1">(tts!=</span><span class="s0">null</span><span class="s1">){</span>
+            <span class="s1">tts?.stop()</span>
+            <span class="s1">tts?.shutdown()</span>
+        <span class="s1">}</span>
+        <span class="s1">finish()</span>
+    <span class="s1">}</span>
+
+    <span class="s1">override </span><span class="s0">fun </span><span class="s1">onDestroy() {</span>
+        <span class="s0">super</span><span class="s1">.onDestroy()</span>
+        <span class="s0">if </span><span class="s1">(tts!=</span><span class="s0">null</span><span class="s1">){</span>
+            <span class="s1">tts?.stop()</span>
+            <span class="s1">tts?.shutdown()</span>
+        <span class="s1">}</span>
+    <span class="s1">}</span>
+<span class="s1">}</span></pre>
+</body>
+</html>
